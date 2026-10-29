@@ -27,8 +27,11 @@ jobs:
       - uses: astral-sh/setup-uv@v6
 
       - name: Build Apple Silicon installer
+        env:
+          UV_BREAK_SYSTEM_PACKAGES: 'true'
         run: |
           perl -pi -e 's/\r$//' source/scripts/build-mac.sh
+          perl -pi -e 's/cp -R /cp -RL /' source/scripts/build-mac.sh
           bash source/scripts/build-mac.sh
       - uses: actions/upload-artifact@v4
         with:
