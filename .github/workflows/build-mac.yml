@@ -5,12 +5,14 @@ permissions:
   contents: read
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Extract source
-        run: unzip -q mac-source.zip -d source
+        run: |
+          unzip -q mac-source.zip -d source
+          cp build-mac-cross.sh source/scripts/build-mac-cross.sh
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -18,17 +20,17 @@ jobs:
         with:
           version: '10'
       - uses: astral-sh/setup-uv@v6
-      - name: Verify architecture and build
+      - name: Cross-build and verify ARM dependencies
         env:
           UV_BREAK_SYSTEM_PACKAGES: 'true'
         run: |
-          test "$(uname -m)" = arm64
-          bash source/scripts/build-mac.sh
+          test "$(uname -m)" = x86_64
+          bash source/scripts/build-mac-cross.sh
       - uses: actions/upload-artifact@v4
         with:
           name: Exion-bot-0.1.7-mac-arm64
           path: |
             source/release/*.dmg
-            source/toolbox/SHA256.txt
+            source/release/SHA256.txt
           if-no-files-found: error
           retention-days: 14
