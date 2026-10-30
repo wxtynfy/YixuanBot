@@ -1,41 +1,34 @@
-name: Build YixuanBot for Mac
-
+name: Build Exion bot for Mac
 on:
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   build:
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-
       - name: Extract source
         run: unzip -q mac-source.zip -d source
-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-
       - uses: pnpm/action-setup@v4
         with:
           version: '10'
-
       - uses: astral-sh/setup-uv@v6
-
-      - name: Build Apple Silicon installer
+      - name: Verify architecture and build
         env:
           UV_BREAK_SYSTEM_PACKAGES: 'true'
         run: |
-          perl -pi -e 's/\r$//' source/scripts/build-mac.sh
-          perl -pi -e 's/cp -R /cp -RL /' source/scripts/build-mac.sh
+          test "$(uname -m)" = arm64
           bash source/scripts/build-mac.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: YixuanBot-mac-arm64
-          path: source/release/*.dmg
+          name: Exion-bot-0.1.7-mac-arm64
+          path: |
+            source/release/*.dmg
+            source/toolbox/SHA256.txt
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
