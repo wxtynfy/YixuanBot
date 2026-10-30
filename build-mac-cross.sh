@@ -2,6 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ "$(uname -s)" == Darwin ]] || exit 1
+export MACOSX_DEPLOYMENT_TARGET=14.0
 uv python install 3.12
 HOST_PYTHON="$(uv python find 3.12)"
 mkdir -p runtime toolbox .build
@@ -39,6 +40,6 @@ PY
 "$HOST_PYTHON" scripts/package_sources.py
 pnpm install --frozen-lockfile --ignore-scripts
 node node_modules/electron/install.js
-CSC_IDENTITY_AUTO_DISCOVERY=false pnpm run dist:mac
+CSC_IDENTITY_AUTO_DISCOVERY=false pnpm run dist:mac --config.mac.minimumSystemVersion=14.0
 shasum -a 256 release/*.dmg > release/SHA256.txt
 printf '\nCross-built ARM installer; native Mac runtime testing is still required.\n'
