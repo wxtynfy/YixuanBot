@@ -28,7 +28,7 @@ jobs:
           bash source/scripts/build-mac-cross.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: Exion-bot-0.1.7-mac-arm64
+          name: Exion-bot-0.1.8-mac-arm64
           path: |
             source/release/*.dmg
             source/release/SHA256.txt

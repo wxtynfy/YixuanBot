@@ -37,9 +37,48 @@ for p in files:
 assert count>0
 print(f'PASS: {count} native files include arm64')
 PY
+# Apply the release version before embedding the source archive.
+"$HOST_PYTHON" - <<'PYCONFIG'
+import json
+from pathlib import Path
+p=Path('package.json')
+d=json.loads(p.read_text())
+d['version']='0.1.8'
+d['build']['mac']['minimumSystemVersion']='14.0'
+p.write_text(json.dumps(d,indent=2)+'\n')
+PYCONFIG
 "$HOST_PYTHON" scripts/package_sources.py
 pnpm install --frozen-lockfile --ignore-scripts
 node node_modules/electron/install.js
-CSC_IDENTITY_AUTO_DISCOVERY=false pnpm run dist:mac --config.mac.minimumSystemVersion=14.0
+# Package first, then sign all nested native files and bundles inside out.
+CSC_IDENTITY_AUTO_DISCOVERY=false pnpm exec electron-builder --mac --dir --arm64
+"$HOST_PYTHON" - <<'PYSIGN'
+from pathlib import Path
+import subprocess
+app=Path('release/mac-arm64/Exion bot.app')
+assert app.is_dir()
+magic={bytes.fromhex(x) for x in ['feedface','cefaedfe','feedfacf','cffaedfe','cafebabe','bebafeca','cafebabf','bfbafeca']}
+count=0
+for p in app.rglob('*'):
+ if not p.is_file() or p.is_symlink():continue
+ with p.open('rb') as f:head=f.read(4)
+ if head not in magic:continue
+ if 'Mach-O' not in subprocess.check_output(['file','-b',str(p)],text=True):continue
+ subprocess.run(['codesign','--force','--sign','-','--timestamp=none',str(p)],check=True)
+ count+=1
+bundles=[p for p in app.rglob('*') if p.is_dir() and not p.is_symlink() and p.suffix in {'.app','.framework','.xpc','.bundle'}]
+for p in sorted(bundles,key=lambda p:len(p.parts),reverse=True)+[app]:
+ subprocess.run(['codesign','--force','--sign','-','--timestamp=none',str(p)],check=True)
+subprocess.run(['codesign','--verify','--deep','--strict','--verbose=2',str(app)],check=True)
+print(f'PASS: ad-hoc signature verified, {count} native files signed')
+PYSIGN
+mkdir -p .build/dmg
+cp -a "release/mac-arm64/Exion bot.app" .build/dmg/
+ln -s /Applications .build/dmg/Applications
+hdiutil create -volname "Exion bot 0.1.8" -srcfolder .build/dmg -ov -format UDZO release/Exion-bot-0.1.8-mac-arm64.dmg
+hdiutil verify release/Exion-bot-0.1.8-mac-arm64.dmg
+hdiutil attach -readonly -nobrowse -mountpoint "$PWD/.build/verify-volume" release/Exion-bot-0.1.8-mac-arm64.dmg
+codesign --verify --deep --strict --verbose=2 "$PWD/.build/verify-volume/Exion bot.app"
+hdiutil detach "$PWD/.build/verify-volume"
 shasum -a 256 release/*.dmg > release/SHA256.txt
-printf '\nCross-built ARM installer; native Mac runtime testing is still required.\n'
+printf '\nAd-hoc signed; not Developer ID notarized. Native Mac testing required.\n'
